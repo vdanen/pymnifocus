@@ -1,6 +1,6 @@
 [project]
 name = "pymnifocus"
-version = "1.0.0"
+version = "0.1"
 description = "OmniFocus MCP server and CLI tool for macOS task management with AI assistants"
 readme = "README.md"
 license = "MIT"
