@@ -54,4 +54,4 @@ brew: ## Generate Homebrew formula (requires package on PyPI)
 	echo "==> Formula/pymnifocus.rb (version $$VERSION)" && \
 	echo "    Install locally:  brew install --formula Formula/pymnifocus.rb" && \
 	echo "    For a tap: copy Formula/pymnifocus.rb to your homebrew-tap repo"
-	rsync -avz Formula ../homebrew-pymnifocus/
+	rsync -avz Formula/pymnifocus.rb ../homebrew-pymnifocus/pymnifocus.rb
