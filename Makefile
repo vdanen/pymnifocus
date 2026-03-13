@@ -43,10 +43,12 @@ check: lint test ## Lint + test
 publish: build ## Upload to PyPI (requires twine or uv publish)
 	$(PYTHON) -m twine upload dist/* || $(UV) publish
 
-brew: build ## Generate Homebrew formula for a tap
+brew: ## Generate Homebrew formula (requires package on PyPI)
 	@mkdir -p Formula
 	@VERSION=$$(grep '^version' pyproject.toml | sed 's/.*"\(.*\)"/\1/') && \
-	SHA=$$(shasum -a 256 dist/pymnifocus-$$VERSION.tar.gz | awk '{print $$1}') && \
+	SHA=$$(curl -sfL "https://pypi.org/pypi/pymnifocus/$$VERSION/json" | \
+		python3 -c "import json,sys;d=json.load(sys.stdin);print([u['digests']['sha256'] for u in d['urls'] if u['filename'].endswith('.tar.gz')][0])") || \
+	{ echo "Error: pymnifocus $$VERSION not found on PyPI. Run 'make publish' first." >&2; exit 1; } && \
 	sed -e "s|@@VERSION@@|$$VERSION|g" -e "s|@@SHA256@@|$$SHA|g" \
 		Formula/pymnifocus.rb.in > Formula/pymnifocus.rb && \
 	echo "==> Formula/pymnifocus.rb (version $$VERSION)" && \
