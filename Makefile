@@ -1,4 +1,4 @@
-.PHONY: help install dev lint format test test-unit test-integration build clean check publish
+.PHONY: help install dev lint format test test-unit test-integration build clean check publish brew
 
 PYTHON ?= .venv/bin/python
 UV     ?= uv
@@ -42,3 +42,14 @@ check: lint test ## Lint + test
 
 publish: build ## Upload to PyPI (requires twine or uv publish)
 	$(PYTHON) -m twine upload dist/* || $(UV) publish
+
+brew: build ## Generate Homebrew formula for a tap
+	@mkdir -p Formula
+	@VERSION=$$(grep '^version' pyproject.toml | sed 's/.*"\(.*\)"/\1/') && \
+	SHA=$$(shasum -a 256 dist/pymnifocus-$$VERSION.tar.gz | awk '{print $$1}') && \
+	sed -e "s|@@VERSION@@|$$VERSION|g" -e "s|@@SHA256@@|$$SHA|g" \
+		Formula/pymnifocus.rb.in > Formula/pymnifocus.rb && \
+	echo "==> Formula/pymnifocus.rb (version $$VERSION)" && \
+	echo "    Install locally:  brew install --formula Formula/pymnifocus.rb" && \
+	echo "    For a tap: copy Formula/pymnifocus.rb to your homebrew-tap repo"
+	rsync -avz Formula ../homebrew-pymnifocus/
