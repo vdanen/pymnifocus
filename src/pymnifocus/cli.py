@@ -102,13 +102,13 @@ def _build_query_from_flags(args: argparse.Namespace) -> dict | None:
 
 
 def _format_items(items: list[dict], entity: str) -> str:
-    """Format query result items for terminal display."""
+    """Format query result items as Markdown (list items use leading '* ')."""
     if not items:
-        return "No items found."
+        return "*No items found.*"
     lines = []
     for item in items:
         if entity == "tasks":
-            flag = "🚩 " if item.get("flagged") else "  "
+            flag = "🚩 " if item.get("flagged") else ""
             name = item.get("name", "Unnamed")
             status = item.get("taskStatus", "")
             proj = item.get("projectName") or ""
@@ -121,7 +121,7 @@ def _format_items(items: list[dict], entity: str) -> str:
                     due = item["dueDate"][:10]
             tags = ", ".join(item.get("tagNames", []))
 
-            parts = [f"{flag}{name}"]
+            parts = [f"* {flag}{name}"]
             if status and status not in ("Available", "Next"):
                 parts.append(f"[{status}]")
             if proj:
@@ -136,14 +136,14 @@ def _format_items(items: list[dict], entity: str) -> str:
             suffix = f" [{status}]" if status != "Active" else ""
             count = item.get("taskCount")
             count_str = f" ({count} tasks)" if count is not None else ""
-            lines.append(f"  {item.get('name', '')}{suffix}{count_str}")
+            lines.append(f"* {item.get('name', '')}{suffix}{count_str}")
         elif entity == "folders":
             path = item.get("path", item.get("name", ""))
             count = item.get("projectCount")
             count_str = f" ({count} projects)" if count is not None else ""
-            lines.append(f"  {path}{count_str}")
+            lines.append(f"* {path}{count_str}")
         else:
-            lines.append(f"  {json.dumps(item)}")
+            lines.append(f"* {json.dumps(item)}")
     return "\n".join(lines)
 
 
@@ -160,19 +160,19 @@ def _run_query(query: dict, output_json: bool) -> int:
 
     if query.get("summary"):
         entity = query.get("entity", "items")
-        print(f"Found {result.get('count', 0)} {entity}.")
+        print(f"**Found** {result.get('count', 0)} {entity}.")
         return 0
 
     items = result.get("items") or []
     entity = query.get("entity", "tasks")
     count = result.get("count", len(items))
     if not items:
-        print(f"No {entity} found matching the specified criteria.")
+        print(f"*No {entity} found matching the specified criteria.*")
         return 0
-    print(f"{count} {entity} found:\n")
+    print(f"## {count} {entity} found\n")
     print(_format_items(items, entity))
     if query.get("limit") and len(items) >= query["limit"]:
-        print(f"\n(limited to {query['limit']} results)")
+        print(f"\n*Limited to {query['limit']} results.*")
     return 0
 
 
@@ -190,13 +190,15 @@ def _run_tool(tool: str, output_json: bool) -> int:
                 projects = data.get("projects", {})
                 folders = data.get("folders", {})
                 tags = data.get("tags", {})
-                print(f"Database snapshot ({data.get('exportDate', 'unknown')}):")
-                print(f"  {len(tasks)} tasks, {len(projects)} projects, "
-                      f"{len(folders)} folders, {len(tags)} tags")
+                print(f"## Database snapshot ({data.get('exportDate', 'unknown')})\n")
+                print(
+                    f"* {len(tasks)} tasks, {len(projects)} projects, "
+                    f"{len(folders)} folders, {len(tags)} tags"
+                )
                 active = [t for t in tasks if t.get("taskStatus") not in ("Completed", "Dropped")]
                 flagged = [t for t in active if t.get("flagged")]
                 inbox = [t for t in active if t.get("inInbox")]
-                print(f"  {len(active)} active, {len(flagged)} flagged, {len(inbox)} in inbox")
+                print(f"* {len(active)} active, {len(flagged)} flagged, {len(inbox)} in inbox")
         elif tool == "tags":
             raw = execute_omnifocus_script("listTags.js")
             data = raw if isinstance(raw, dict) else json.loads(raw)
@@ -204,19 +206,21 @@ def _run_tool(tool: str, output_json: bool) -> int:
                 print(json.dumps(data, indent=2, default=str))
             else:
                 tags = data.get("tags", [])
+                print("## Tags\n")
                 for t in tags:
                     parent = f" (under {t['parentName']})" if t.get("parentName") else ""
                     active = "" if t.get("active", True) else " [dropped]"
-                    print(f"  {t.get('name', '')}{parent}{active} — {t.get('taskCount', 0)} tasks")
+                    print(f"* {t.get('name', '')}{parent}{active} — {t.get('taskCount', 0)} tasks")
         elif tool == "perspectives":
             raw = execute_omnifocus_script("listPerspectives.js")
             data = raw if isinstance(raw, dict) else json.loads(raw)
             if output_json:
                 print(json.dumps(data, indent=2, default=str))
             else:
+                print("## Perspectives\n")
                 for p in data.get("perspectives", []):
                     kind = "built-in" if p.get("isBuiltIn") else "custom"
-                    print(f"  {p.get('name', '')} ({kind})")
+                    print(f"* {p.get('name', '')} ({kind})")
         else:
             print(f"Unknown tool: {tool}", file=sys.stderr)
             return 1
