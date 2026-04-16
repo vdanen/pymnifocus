@@ -8,6 +8,7 @@ Examples:
     omnifocus-query --overdue
     omnifocus-query --project "Weekly Review" --limit 10
     echo '{"entity": "tasks", "filters": {"status": ["Next"]}}' | omnifocus-query
+    pymnifocus-query --completed-within 7 --sort completionDate --sort-order desc
 """
 
 from __future__ import annotations
@@ -15,9 +16,26 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from pymnifocus.omnifocus import execute_omnifocus_script, query_omnifocus
+
+
+def _merge_completed_within(
+    query: dict, days: int, *, today: date | None = None
+) -> None:
+    """Restrict to tasks completed in the last N local calendar days (inclusive of today)."""
+    if days < 0:
+        raise ValueError("days must be >= 0")
+    if today is None:
+        today = date.today()
+    filt = query.setdefault("filters", {})
+    if not isinstance(filt, dict):
+        query["filters"] = {}
+        filt = query["filters"]
+    filt["completedAfter"] = (today - timedelta(days=days)).isoformat()
+    filt["completedBefore"] = (today + timedelta(days=1)).isoformat()
+    query["includeCompleted"] = True
 
 
 def _build_query_from_flags(args: argparse.Namespace) -> dict | None:
@@ -60,6 +78,8 @@ def _build_query_from_flags(args: argparse.Namespace) -> dict | None:
         has_shortcut = True
     if args.has_note is not None:
         filters["hasNote"] = args.has_note
+        has_shortcut = True
+    if args.completed_within is not None:
         has_shortcut = True
 
     if not has_shortcut:
@@ -217,6 +237,7 @@ def main() -> None:
   %(prog)s --overdue --due-soon
   %(prog)s --project "Weekly Review" --limit 10
   %(prog)s --due-within 7 --sort dueDate
+  %(prog)s --completed-within 7 --sort completionDate --sort-order desc
   %(prog)s --today
   %(prog)s --tag work --tag urgent
   %(prog)s --inbox --json
@@ -242,6 +263,12 @@ def main() -> None:
     shortcuts.add_argument("--today", action="store_true", help="tasks due today")
     shortcuts.add_argument("--due-within", type=int, metavar="DAYS", help="tasks due within N days")
     shortcuts.add_argument("--planned-within", type=int, metavar="DAYS", help="tasks planned within N days")
+    shortcuts.add_argument(
+        "--completed-within",
+        type=int,
+        metavar="DAYS",
+        help="tasks completed in the last N calendar days (implies --completed)",
+    )
     shortcuts.add_argument("--project", "-p", metavar="NAME", help="tasks in project (partial match)")
     shortcuts.add_argument("--tag", "-t", action="append", metavar="TAG", help="tasks with tag (repeatable)")
     shortcuts.add_argument("--has-note", action="store_true", default=None, dest="has_note", help="tasks that have notes")
@@ -265,6 +292,9 @@ def main() -> None:
     output.add_argument("--json", action="store_true", dest="output_json", help="output raw JSON")
 
     args = parser.parse_args()
+
+    if args.completed_within is not None and args.completed_within < 0:
+        parser.error("--completed-within must be >= 0")
 
     # Handle non-query tools
     if args.dump:
@@ -307,6 +337,8 @@ def main() -> None:
         query["summary"] = True
     if args.fields and "fields" not in query:
         query["fields"] = args.fields
+    if args.completed_within is not None:
+        _merge_completed_within(query, args.completed_within)
 
     sys.exit(_run_query(query, args.output_json))
 

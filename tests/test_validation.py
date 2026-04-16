@@ -5,6 +5,8 @@ These tests do NOT require OmniFocus to be running.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from pymnifocus.query_generator import (
@@ -12,6 +14,7 @@ from pymnifocus.query_generator import (
     VALID_SORT_FIELDS,
     generate_query_script,
 )
+from pymnifocus import cli as pymnifocus_cli
 from pymnifocus.applescript_gen import _sanitize
 
 
@@ -115,6 +118,27 @@ class TestQueryGeneratorValidation:
     def test_default_field_mapping_folders(self):
         script = generate_query_script(entity="folders")
         assert "projectCount" in script
+
+
+class TestCliCompletedWithinMerge:
+    """pymnifocus-query --completed-within builds the same filter window as the MCP."""
+
+    def test_seven_days_inclusive_of_today(self):
+        q: dict = {"entity": "tasks", "filters": {}}
+        pymnifocus_cli._merge_completed_within(q, 7, today=date(2026, 4, 16))
+        assert q["includeCompleted"] is True
+        assert q["filters"]["completedAfter"] == "2026-04-09"
+        assert q["filters"]["completedBefore"] == "2026-04-17"
+
+    def test_zero_days_is_today_only(self):
+        q: dict = {"entity": "tasks", "filters": {}}
+        pymnifocus_cli._merge_completed_within(q, 0, today=date(2026, 4, 16))
+        assert q["filters"]["completedAfter"] == "2026-04-16"
+        assert q["filters"]["completedBefore"] == "2026-04-17"
+
+    def test_negative_days_rejected(self):
+        with pytest.raises(ValueError, match=">= 0"):
+            pymnifocus_cli._merge_completed_within({"entity": "tasks", "filters": {}}, -1)
 
 
 class TestAppleScriptSanitization:
