@@ -108,6 +108,10 @@ Or if using `uv` from a local clone:
 
 Restart Cursor or reload MCP servers (`Cmd+Shift+P` -> "MCP: Restart Servers").
 
+### Claude Code Integration
+
+Same as above, just edit `~/.claude.json`.
+
 ### Claude Desktop Integration
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
