@@ -27,6 +27,8 @@ RESOURCES:
 - omnifocus://perspective/{name} — items in a named perspective
 
 QUERY FILTER TIPS:
+- Task field for tag labels is tagNames (not tags); filters use the tags key for exact tag name(s)
+- completedAfter / completedBefore accept ISO dates (YYYY-MM-DD) or datetimes; date-only completedBefore is exclusive (tasks completed before that calendar day in local time). Use include_completed true when querying completed work.
 - Tags filter is case-sensitive and exact match
 - projectName filter is case-insensitive partial match
 - Status values for tasks: Next, Available, Blocked, DueSoon, Overdue
@@ -145,7 +147,11 @@ def query_omnifocus(
     include_completed: bool = False,
     summary: bool = False,
 ) -> str:
-    """Efficiently query OmniFocus database with filters. Get specific tasks, projects, or folders."""
+    """Efficiently query OmniFocus database with filters. Get specific tasks, projects, or folders.
+
+    Task filters include completedAfter and completedBefore (ISO date or datetime, local timezone)
+    to restrict by completionDate; set include_completed true or completed tasks are excluded first.
+    """
     result = omnifocus.query_omnifocus({
         "entity": entity,
         "filters": filters,

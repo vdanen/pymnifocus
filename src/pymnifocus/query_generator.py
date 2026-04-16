@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
+
 VALID_ENTITIES = {"tasks", "projects", "folders"}
 
 VALID_SORT_FIELDS = {
@@ -42,6 +44,38 @@ def _validate_int(value: object, name: str) -> int:
         raise ValueError(f"{name} must be an integer, got {type(value).__name__}: {value!r}")
 
 
+def _filter_datetime_to_local_epoch_ms(value: object, param: str) -> int:
+    """Parse a completion-range boundary to local-time epoch ms (matches OmniJS Date comparisons)."""
+    if isinstance(value, datetime):
+        dt = value
+        if dt.tzinfo is not None:
+            dt = dt.astimezone().replace(tzinfo=None)
+    elif isinstance(value, date):
+        dt = datetime.combine(value, datetime.min.time())
+    elif isinstance(value, str):
+        s = value.strip()
+        if not s:
+            raise ValueError(f"{param} must be non-empty")
+        try:
+            if "T" in s or len(s) > 10:
+                raw = s.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(raw)
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone().replace(tzinfo=None)
+            else:
+                dt = datetime.combine(date.fromisoformat(s[:10]), datetime.min.time())
+        except ValueError as e:
+            raise ValueError(f"Invalid {param}: {value!r}") from e
+    else:
+        raise ValueError(
+            f"{param} must be a date, datetime, or ISO-8601 string, got {type(value).__name__}"
+        )
+    try:
+        return int(dt.timestamp() * 1000)
+    except OSError as e:
+        raise ValueError(f"Invalid {param}: {value!r}") from e
+
+
 def generate_query_script(
     entity: str,
     filters: dict | None = None,
@@ -67,7 +101,7 @@ def generate_query_script(
     if sort_order not in ("asc", "desc"):
         sort_order = "asc"
 
-    filter_conditions = _generate_filter_conditions(entity, filters)
+    completion_bounds_js, filter_conditions = _generate_filter_conditions(entity, filters)
     sort_logic = _generate_sort_logic(sort_by, sort_order) if sort_by else ""
     limit_logic = f"filtered = filtered.slice(0, {limit});" if limit else ""
     field_mapping = _generate_field_mapping(entity, fields)
@@ -107,6 +141,7 @@ def generate_query_script(
       [Project.Status.Dropped]: "Dropped",
       [Project.Status.OnHold]: "OnHold"
     }};
+    {completion_bounds_js}
     let items = [];
     const entityType = "{_escape_js(entity)}";
     if (entityType === "tasks") items = flattenedTasks;
@@ -138,10 +173,39 @@ def generate_query_script(
 }})();'''
 
 
-def _generate_filter_conditions(entity: str, filters: dict) -> str:
-    """Generate JavaScript filter conditions."""
+def _generate_filter_conditions(entity: str, filters: dict) -> tuple[str, str]:
+    """Generate JS completion-bound declarations and filter body. Returns (preamble, conditions)."""
     conditions = []
+    completion_preamble = ""
     if entity == "tasks":
+        has_ca = filters.get("completedAfter") is not None
+        has_cb = filters.get("completedBefore") is not None
+        ca_ms = "null"
+        cb_ms = "null"
+        if has_ca:
+            ca_ms = str(
+                _filter_datetime_to_local_epoch_ms(
+                    filters["completedAfter"], "completedAfter"
+                )
+            )
+        if has_cb:
+            cb_ms = str(
+                _filter_datetime_to_local_epoch_ms(
+                    filters["completedBefore"], "completedBefore"
+                )
+            )
+        if has_ca or has_cb:
+            completion_preamble = f"""    const hasCompletedAfterFilter = {str(has_ca).lower()};
+    const hasCompletedBeforeFilter = {str(has_cb).lower()};
+    const completedAfterMsBound = {ca_ms};
+    const completedBeforeMsBound = {cb_ms};"""
+            conditions.append("""
+      if (hasCompletedAfterFilter) {
+        if (!item.completionDate || item.completionDate.getTime() < completedAfterMsBound) return false;
+      }
+      if (hasCompletedBeforeFilter) {
+        if (!item.completionDate || item.completionDate.getTime() >= completedBeforeMsBound) return false;
+      }""")
         if project_name := filters.get("projectName"):
             escaped = _escape_js(str(project_name).lower())
             conditions.append(f'''
@@ -203,7 +267,7 @@ def _generate_filter_conditions(entity: str, filters: dict) -> str:
                 status = [status]
             status_checks = " || ".join(f'projectStatusMap[item.status] === "{_escape_js(str(s))}"' for s in status)
             conditions.append(f"if (!({status_checks})) return false;")
-    return "\n".join(conditions) if conditions else ""
+    return completion_preamble, "\n".join(conditions) if conditions else ""
 
 
 def _generate_sort_logic(sort_by: str, sort_order: str) -> str:
@@ -298,6 +362,8 @@ def _generate_field_mapping(entity: str, fields: list[str] | None) -> str:
 
     result_fields = []
     for field in fields:
+        if field == "tags":
+            field = "tagNames"
         if field in field_mappings:
             result_fields.append(field_mappings[field])
         elif field in KNOWN_FIELDS:

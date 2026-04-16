@@ -75,6 +75,28 @@ class TestQueryGeneratorValidation:
         )
         assert "checkDateFilter(item.dueDate, 7)" in script
 
+    def test_completion_date_filters_in_script(self):
+        script = generate_query_script(
+            entity="tasks",
+            filters={"completedAfter": "2026-04-09", "completedBefore": "2026-04-16"},
+        )
+        assert "hasCompletedAfterFilter" in script
+        assert "hasCompletedBeforeFilter" in script
+        assert "completedAfterMsBound" in script
+        assert "completedBeforeMsBound" in script
+        assert "item.completionDate.getTime()" in script
+
+    def test_tags_field_alias_maps_to_tag_names(self):
+        script = generate_query_script(entity="tasks", fields=["name", "tags"])
+        assert "item.tags.map(t => t.name)" in script
+
+    def test_invalid_completion_filter_rejected(self):
+        with pytest.raises(ValueError, match="completedAfter"):
+            generate_query_script(
+                entity="tasks",
+                filters={"completedAfter": "not-a-date"},
+            )
+
     def test_sort_order_sanitized(self):
         script = generate_query_script(
             entity="tasks", sort_by="name", sort_order="invalid"
