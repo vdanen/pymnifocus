@@ -1,0 +1,227 @@
+.\" pymnifocus-query man page
+.TH PYMNIFOCUS\-QUERY 1 "March 2026" "pymnifocus 0.1.1" "User Commands"
+.SH NAME
+pymnifocus\-query \- query OmniFocus from the command line
+.SH SYNOPSIS
+.B pymnifocus\-query
+.RI [ OPTIONS ]
+.RI [ JSON_INPUT ]
+.br
+.I command
+.B |
+.B pymnifocus\-query
+.RI [ OPTIONS ]
+.SH DESCRIPTION
+.B pymnifocus\-query
+is a command\-line tool for querying an OmniFocus database on macOS.
+It supports both convenience flags for common queries and raw JSON input
+using the same format as the MCP
+.B query_omnifocus
+tool.
+.PP
+OmniFocus must be running for this tool to function.
+Communication is entirely local via OmniJS scripts executed through
+.BR osascript (1).
+.SH OPTIONS
+.SS "Positional Arguments"
+.TP
+.I JSON_INPUT
+A JSON query object passed as a positional argument.
+Must contain at least an \fB"entity"\fR field.
+If omitted and stdin is not a terminal, JSON is read from stdin.
+.SS "Query Shortcuts"
+.TP
+.B \-\-inbox
+Show inbox tasks.
+.TP
+.B \-\-flagged
+Show flagged tasks.
+.TP
+.B \-\-overdue
+Show overdue tasks.
+.TP
+.B \-\-due\-soon
+Show tasks that are due soon.
+.TP
+.B \-\-available
+Show available and next tasks.
+.TP
+.B \-\-blocked
+Show blocked tasks.
+.TP
+.B \-\-today
+Show tasks due today.
+.TP
+.BI \-\-due\-within " DAYS"
+Show tasks due within
+.I DAYS
+days.
+.TP
+.BI \-\-planned\-within " DAYS"
+Show tasks planned within
+.I DAYS
+days.
+.TP
+.BI \-\-project " NAME" "\fR,\fP " \-p " NAME"
+Show tasks in the named project (partial, case\-insensitive match).
+.TP
+.BI \-\-tag " TAG" "\fR,\fP " \-t " TAG"
+Show tasks with the given tag.
+May be repeated to match multiple tags.
+.TP
+.B \-\-has\-note
+Show tasks that have notes.
+.TP
+.B \-\-no\-note
+Show tasks that do not have notes.
+.SS "Query Options"
+.TP
+.BI \-\-entity " TYPE" "\fR,\fP " \-e " TYPE"
+Entity type to query:
+.BR tasks ", " projects ", or " folders .
+Default:
+.BR tasks .
+.TP
+.BI \-\-fields " FIELD" "\fR [\fPFIELD\fR ...]\fP,\fP " \-f " FIELD" "\fR [\fPFIELD\fR ...]\fP"
+Specific fields to return in results.
+.TP
+.BI \-\-limit " N" "\fR,\fP " \-n " N"
+Maximum number of results to return.
+.TP
+.BI \-\-sort " FIELD" "\fR,\fP " \-s " FIELD"
+Sort results by field (e.g.\&
+.BR dueDate ", " name ).
+.TP
+.BI \-\-sort\-order " DIR"
+Sort direction:
+.B asc
+or
+.BR desc .
+.TP
+.B \-\-completed
+Include completed items in results.
+.TP
+.B \-\-summary
+Return count only, without full item data.
+.SS "Other Tools"
+.TP
+.B \-\-dump
+Print a full database snapshot (tasks, projects, folders, tags).
+.TP
+.B \-\-tags
+List all tags with hierarchy and task counts.
+.TP
+.B \-\-perspectives
+List all available perspectives.
+.SS "Output"
+.TP
+.B \-\-json
+Output raw JSON instead of formatted text.
+Useful for scripting and piping to other tools.
+.SH EXAMPLES
+Query using shorthand flags:
+.PP
+.nf
+.RS
+pymnifocus\-query \-\-overdue
+pymnifocus\-query \-\-flagged \-\-sort dueDate
+pymnifocus\-query \-\-inbox
+pymnifocus\-query \-\-due\-within 7 \-\-limit 10
+pymnifocus\-query \-\-project "Weekly Review"
+pymnifocus\-query \-\-tag work \-\-tag urgent
+pymnifocus\-query \-\-available \-\-summary
+pymnifocus\-query \-\-today
+.RE
+.fi
+.PP
+Query using JSON input:
+.PP
+.nf
+.RS
+pymnifocus\-query '{"entity": "tasks", "filters": {"status": ["Overdue"]}}'
+pymnifocus\-query '{"entity": "projects", "filters": {"status": ["Active"]}}'
+.RE
+.fi
+.PP
+Pipe JSON from stdin:
+.PP
+.nf
+.RS
+echo '{"entity": "tasks", "filters": {"flagged": true}}' | pymnifocus\-query
+.RE
+.fi
+.PP
+Use other tools:
+.PP
+.nf
+.RS
+pymnifocus\-query \-\-dump
+pymnifocus\-query \-\-tags
+pymnifocus\-query \-\-perspectives
+.RE
+.fi
+.PP
+Raw JSON output for scripting:
+.PP
+.nf
+.RS
+pymnifocus\-query \-\-overdue \-\-json
+.RE
+.fi
+.SH JSON QUERY FORMAT
+The JSON input accepts the same format as the MCP
+.B query_omnifocus
+tool:
+.PP
+.nf
+.RS
+{
+  "entity": "tasks",
+  "filters": {
+    "flagged": true,
+    "status": ["Overdue", "DueSoon"],
+    "projectName": "Work",
+    "tags": ["urgent"],
+    "inbox": true,
+    "dueWithin": 7,
+    "dueOn": 0,
+    "hasNote": true
+  },
+  "fields": ["id", "name", "dueDate"],
+  "sortBy": "dueDate",
+  "sortOrder": "asc",
+  "limit": 50,
+  "includeCompleted": false,
+  "summary": false
+}
+.RE
+.fi
+.PP
+Valid entity types are
+.BR tasks ", " projects ", and " folders .
+.PP
+Task status values:
+.BR Next ", " Available ", " Blocked ", " DueSoon ", " Overdue .
+.br
+Project status values:
+.BR Active ", " OnHold ", " Done ", " Dropped .
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Error (invalid JSON, query failure, OmniFocus not running, etc.).
+.SH ENVIRONMENT
+Requires macOS with OmniFocus installed and running.
+The tool communicates with OmniFocus via OmniJS scripts executed through
+.BR osascript (1).
+.SH SEE ALSO
+.BR pymnifocus\-server (1),
+.BR osascript (1)
+.PP
+Project homepage:
+.UR https://github.com/vdanen/pymnifocus
+.UE
+.SH AUTHORS
+Vincent Danen

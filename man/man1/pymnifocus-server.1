@@ -1,0 +1,164 @@
+.\" pymnifocus-server man page
+.TH PYMNIFOCUS\-SERVER 1 "March 2026" "pymnifocus 0.1.1" "User Commands"
+.SH NAME
+pymnifocus\-server \- MCP server for OmniFocus integration with AI assistants
+.SH SYNOPSIS
+.B pymnifocus\-server
+.br
+.B python \-m pymnifocus
+.SH DESCRIPTION
+.B pymnifocus\-server
+runs a Model Context Protocol (MCP) server that enables AI assistants
+such as Cursor, Claude Desktop, and Google Gemini to interact with
+OmniFocus on macOS through natural language.
+.PP
+The server uses
+.B stdio
+transport by default and communicates with OmniFocus locally via OmniJS
+scripts executed through
+.BR osascript (1)
+and AppleScript for write operations.
+.PP
+OmniFocus must be running for the server to function.
+No network traffic leaves the machine.
+.SH MCP TOOLS
+The server exposes the following tools to connected AI clients:
+.TP
+.B query_omnifocus
+Query tasks, projects, or folders with filters, sorting, and field selection.
+.TP
+.B dump_database
+Get the complete current state of the OmniFocus database.
+.TP
+.B add_omnifocus_task
+Add a new task with optional project, tags, due date, and other properties.
+.TP
+.B add_project
+Create a new project with optional folder, tags, and configuration.
+.TP
+.B remove_item
+Remove a task or project by ID or name.
+.TP
+.B edit_item
+Edit properties of a task or project.
+.TP
+.B batch_add_items
+Add multiple tasks or projects in a single operation (max 100).
+.TP
+.B batch_remove_items
+Remove multiple tasks or projects in a single operation (max 100).
+.TP
+.B list_perspectives
+List available OmniFocus perspectives.
+.TP
+.B get_perspective_view
+Get items visible in a specific perspective.
+.TP
+.B list_tags
+List all tags with hierarchy.
+.SH MCP RESOURCES
+The server provides the following read\-only resources:
+.TP
+.B omnifocus://inbox
+Current inbox items.
+.TP
+.B omnifocus://today
+Today's agenda: tasks due today, planned today, and overdue.
+.TP
+.B omnifocus://flagged
+All flagged items.
+.TP
+.B omnifocus://stats
+Database statistics (task, project, folder, and tag counts).
+.TP
+.B omnifocus://project/{name}
+Tasks in a specific project.
+.TP
+.B omnifocus://perspective/{name}
+Items in a named perspective.
+.SH CONFIGURATION
+.SS "Cursor"
+Edit
+.I ~/.cursor/mcp.json
+to add:
+.PP
+.nf
+.RS
+{
+  "mcpServers": {
+    "omnifocus": {
+      "command": "pymnifocus\-server"
+    }
+  }
+}
+.RE
+.fi
+.PP
+Then restart Cursor or reload MCP servers.
+.SS "Claude Desktop"
+Edit
+.IR "~/Library/Application Support/Claude/claude_desktop_config.json" :
+.PP
+.nf
+.RS
+{
+  "mcpServers": {
+    "omnifocus": {
+      "command": "pymnifocus\-server"
+    }
+  }
+}
+.RE
+.fi
+.PP
+Then restart Claude Desktop.
+.SS "Streamable HTTP Transport"
+For web\-based MCP clients that need HTTP transport:
+.PP
+.nf
+.RS
+python \-c "from pymnifocus.server import mcp; mcp.run(transport='streamable\-http')"
+.RE
+.fi
+.PP
+Then connect to
+.IR http://localhost:8000/mcp .
+.SH SECURITY
+.IP \(bu 2
+All user input is validated and escaped before embedding in scripts.
+.IP \(bu 2
+Entity names, sort fields, and field names are whitelisted.
+.IP \(bu 2
+Numeric parameters are validated as integers.
+.IP \(bu 2
+AppleScript strings are sanitized against injection.
+.IP \(bu 2
+Script paths are constrained to prevent directory traversal.
+.IP \(bu 2
+Batch operations are capped at 100 items.
+.IP \(bu 2
+Query results are capped at 5000 items.
+.IP \(bu 2
+All communication is local (no network traffic).
+.SH ENVIRONMENT
+Requires macOS with OmniFocus installed and running.
+.SH EXIT STATUS
+.TP
+.B 0
+Server shut down cleanly.
+.TP
+.B 1
+Startup failure (e.g.\& missing dependencies).
+.SH SEE ALSO
+.BR pymnifocus\-query (1),
+.BR osascript (1)
+.PP
+Project homepage:
+.UR https://github.com/vdanen/pymnifocus
+.UE
+.PP
+MCP specification:
+.UR https://modelcontextprotocol.io
+.UE
+.SH AUTHORS
+Vincent Danen
