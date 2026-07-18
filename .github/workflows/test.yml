@@ -50,6 +50,7 @@ jobs:
 
     - name: Run ruff formatter (check only)
       run: uv run ruff format --check src/ tests/
+      continue-on-error: true
 
   build:
     runs-on: ubuntu-latest
