@@ -1,4 +1,4 @@
-.PHONY: help install dev lint format test test-unit test-integration build clean check publish brew
+.PHONY: help install dev lint format test test-unit test-integration build clean check publish upload version brew
 
 PYTHON ?= .venv/bin/python
 UV     ?= uv
@@ -31,7 +31,7 @@ test-integration: ## Run integration tests (requires OmniFocus running)
 	$(PYTHON) -m pytest tests/test_integration.py -v
 
 build: clean ## Build sdist and wheel
-	$(PYTHON) -m build
+	$(UV) build
 
 clean: ## Remove build artifacts
 	rm -rf dist/ build/ *.egg-info src/*.egg-info
@@ -40,8 +40,27 @@ clean: ## Remove build artifacts
 
 check: lint test ## Lint + test
 
-publish: build ## Upload to PyPI (requires twine or uv publish)
-	$(PYTHON) -m twine upload dist/* || $(UV) publish
+publish: build ## Emergency manual PyPI upload (prefer Trusted Publishing)
+	@echo "WARNING: Prefer Trusted Publishing (tag on main). Continuing with uv publish..."
+	$(UV) publish
+
+version: ## Bump version, commit, and tag (VERSION=x.y.z)
+ifndef VERSION
+	$(error VERSION is required. Usage: make version VERSION=1.2.3)
+endif
+	$(UV) version $(VERSION)
+	git add pyproject.toml uv.lock
+	git commit -m "Bump version to $(VERSION)"
+	git tag -a "v$(VERSION)" -m "v$(VERSION)"
+	@echo ""
+	@echo "Created commit and local tag v$(VERSION)."
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Push the commit:     git push origin main"
+	@echo "  2. Push the tag:        git push origin v$(VERSION)"
+	@echo "  3. Approve the pypi environment deployment in Actions if prompted."
+	@echo "  4. Confirm https://pypi.org/project/pymnifocus/"
+	@echo ""
 
 brew: ## Generate Homebrew formula (requires package on PyPI)
 	@mkdir -p Formula
