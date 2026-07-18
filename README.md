@@ -23,7 +23,6 @@ uv pip install pymnifocus
 git clone https://github.com/vdanen/pymnifocus.git
 cd pymnifocus
 uv sync
-pip install -e .
 ```
 
 ## CLI Query Tool
@@ -65,12 +64,18 @@ The MCP server enables AI assistants to interact with OmniFocus through natural 
 ### Running the Server
 
 ```bash
-# Stdio transport (for Cursor/Claude/Gemini)
+# Stdio transport (default, for Cursor/Claude/Gemini)
 pymnifocus-server
+
+# Streamable HTTP transport (for web clients or container access)
+pymnifocus-server --transport streamable-http
+pymnifocus-server --transport streamable-http --port 9000
 
 # Or via module
 python -m pymnifocus
 ```
+
+Run `pymnifocus-server --help` for all options.
 
 ### Cursor Integration
 
@@ -137,10 +142,65 @@ For MCP-compatible Gemini clients, the server uses **stdio** transport by defaul
 For **Streamable HTTP** (web-based clients):
 
 ```bash
-python -c "from pymnifocus.server import mcp; mcp.run(transport='streamable-http')"
+pymnifocus-server --transport streamable-http
 ```
 
 Then connect to `http://localhost:8000/mcp`.
+
+### Container Access
+
+Since OmniFocus is a macOS application, the MCP server must run on the macOS host. Containers can reach it over HTTP using `host.docker.internal`.
+
+**1. Start the server on the host:**
+
+```bash
+pymnifocus-server --transport streamable-http
+```
+
+This binds to `127.0.0.1:8000` by default. OmniFocus must be running.
+
+**2. Configure the MCP client inside the container:**
+
+```json
+{
+  "mcpServers": {
+    "omnifocus": {
+      "url": "http://host.docker.internal:8000/mcp"
+    }
+  }
+}
+```
+
+**3. Sample Containerfile:**
+
+```dockerfile
+FROM python:3.13-slim
+
+RUN pip install --no-cache-dir mcp-client-cli
+
+# Configure MCP to reach the host's pymnifocus server
+RUN mkdir -p /root/.config
+COPY <<'EOF' /root/.config/mcp.json
+{
+  "mcpServers": {
+    "omnifocus": {
+      "url": "http://host.docker.internal:8000/mcp"
+    }
+  }
+}
+EOF
+
+CMD ["bash"]
+```
+
+Build and run (Docker or Podman):
+
+```bash
+docker build -t my-mcp-app .
+docker run --rm -it my-mcp-app
+```
+
+> **Note:** `host.docker.internal` resolves to the host machine on Docker Desktop for Mac and Podman Machine. On Linux with native Docker, add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
 
 ## Available MCP Tools
 
@@ -195,7 +255,8 @@ OmniFocus must be running for either the MCP server or the CLI tool to function.
 - Script paths are constrained to prevent directory traversal
 - Batch operations are capped at 100 items
 - Query results are capped at 5000 items
-- All communication is local (no network traffic)
+- Stdio transport: all communication is local (no network traffic)
+- HTTP transport: binds to localhost by default; use `--host` to override
 
 ## License
 

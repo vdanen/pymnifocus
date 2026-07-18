@@ -578,8 +578,37 @@ def resource_perspective(name: str) -> str:
 
 
 def main() -> None:
-    """Run the MCP server with stdio transport (for Cursor, Claude, etc.)."""
-    mcp.run(transport="stdio")
+    """Run the MCP server."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="pymnifocus-server",
+        description="OmniFocus MCP server for AI assistant integration",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "streamable-http"],
+        default="stdio",
+        help="transport protocol (default: stdio)",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="bind address for HTTP transport (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="port for HTTP transport (default: 8000)",
+    )
+    args = parser.parse_args()
+
+    if args.transport == "streamable-http":
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+
+    mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":

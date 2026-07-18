@@ -1,11 +1,13 @@
 .\" pymnifocus-server man page
-.TH PYMNIFOCUS\-SERVER 1 "March 2026" "pymnifocus 0.1.1" "User Commands"
+.TH PYMNIFOCUS\-SERVER 1 "July 2026" "pymnifocus 0.1.1" "User Commands"
 .SH NAME
 pymnifocus\-server \- MCP server for OmniFocus integration with AI assistants
 .SH SYNOPSIS
 .B pymnifocus\-server
+.RI [ OPTIONS ]
 .br
 .B python \-m pymnifocus
+.RI [ OPTIONS ]
 .SH DESCRIPTION
 .B pymnifocus\-server
 runs a Model Context Protocol (MCP) server that enables AI assistants
@@ -20,7 +22,32 @@ scripts executed through
 and AppleScript for write operations.
 .PP
 OmniFocus must be running for the server to function.
-No network traffic leaves the machine.
+When using stdio transport, no network traffic leaves the machine.
+.SH OPTIONS
+.TP
+.BI \-\-transport " TRANSPORT"
+Transport protocol to use:
+.B stdio
+(default) for local AI assistant integration, or
+.B streamable\-http
+for HTTP\-based clients and container access.
+.TP
+.BI \-\-host " HOST"
+Bind address for HTTP transport.
+Default:
+.BR 127.0.0.1 .
+Only used when transport is
+.BR streamable\-http .
+.TP
+.BI \-\-port " PORT"
+Port for HTTP transport.
+Default:
+.BR 8000 .
+Only used when transport is
+.BR streamable\-http .
+.TP
+.B \-h ", " \-\-help
+Show usage information and exit.
 .SH MCP TOOLS
 The server exposes the following tools to connected AI clients:
 .TP
@@ -113,16 +140,33 @@ Edit
 .PP
 Then restart Claude Desktop.
 .SS "Streamable HTTP Transport"
-For web\-based MCP clients that need HTTP transport:
+For web\-based MCP clients or container access:
 .PP
 .nf
 .RS
-python \-c "from pymnifocus.server import mcp; mcp.run(transport='streamable\-http')"
+pymnifocus\-server \-\-transport streamable\-http
+pymnifocus\-server \-\-transport streamable\-http \-\-port 9000
 .RE
 .fi
 .PP
 Then connect to
-.IR http://localhost:8000/mcp .
+.IR http://localhost:8000/mcp
+(or the configured port).
+.SS "Container Access"
+Since OmniFocus requires macOS, the server must run on the host.
+Containers can reach it via
+.B host.docker.internal
+(Docker and Podman on macOS):
+.PP
+.nf
+.RS
+# On the macOS host:
+pymnifocus\-server \-\-transport streamable\-http
+
+# In the container's MCP config, connect to:
+#   http://host.docker.internal:8000/mcp
+.RE
+.fi
 .SH SECURITY
 .IP \(bu 2
 All user input is validated and escaped before embedding in scripts.

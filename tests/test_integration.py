@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 import subprocess
 import sys
+import time
 
 from pymnifocus.applescript_gen import gen_add_task, gen_remove_item
 from pymnifocus.omnifocus import (
@@ -257,3 +259,139 @@ class TestMCPServer:
                 await _mcp_cleanup(cm, session)
 
         asyncio.run(_test())
+
+
+# ===========================================================================
+# MCP server -- HTTP transport
+# ===========================================================================
+
+def _find_free_port() -> int:
+    """Return an available TCP port on localhost."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _wait_for_port(port: int, timeout: float = 10.0) -> None:
+    """Block until a TCP connection to localhost:port succeeds."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return
+        except OSError:
+            time.sleep(0.1)
+    raise TimeoutError(f"Server did not start on port {port} within {timeout}s")
+
+
+class TestMCPServerHTTP:
+    """Test the MCP server over streamable-http transport."""
+
+    def test_connect_and_list_tools_http(self):
+        port = _find_free_port()
+
+        async def _test():
+            from mcp import ClientSession
+            from mcp.client.streamable_http import streamablehttp_client
+
+            proc = subprocess.Popen(
+                [
+                    sys.executable, "-m", "pymnifocus.server",
+                    "--transport", "streamable-http",
+                    "--port", str(port),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                await asyncio.to_thread(_wait_for_port, port)
+
+                url = f"http://127.0.0.1:{port}/mcp"
+                async with streamablehttp_client(url) as (read, write, _):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        tools = await session.list_tools()
+                        return [t.name for t in tools.tools]
+            finally:
+                proc.terminate()
+                proc.wait(timeout=5)
+
+        tool_names = asyncio.run(_test())
+        expected = {
+            "query_omnifocus", "dump_database", "add_omnifocus_task",
+            "add_project", "remove_item", "edit_item",
+            "batch_add_items", "batch_remove_items",
+            "list_perspectives", "get_perspective_view", "list_tags",
+        }
+        assert expected == set(tool_names)
+
+    def test_query_via_http(self):
+        port = _find_free_port()
+
+        async def _test():
+            from mcp import ClientSession
+            from mcp.client.streamable_http import streamablehttp_client
+
+            proc = subprocess.Popen(
+                [
+                    sys.executable, "-m", "pymnifocus.server",
+                    "--transport", "streamable-http",
+                    "--port", str(port),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                await asyncio.to_thread(_wait_for_port, port)
+
+                url = f"http://127.0.0.1:{port}/mcp"
+                async with streamablehttp_client(url) as (read, write, _):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        result = await session.call_tool(
+                            "query_omnifocus",
+                            arguments={"entity": "tasks", "limit": 3},
+                        )
+                        return result.content[0].text
+            finally:
+                proc.terminate()
+                proc.wait(timeout=5)
+
+        text = asyncio.run(_test())
+        assert "tasks" in text.lower() or "Query Results" in text
+
+    def test_list_resources_via_http(self):
+        port = _find_free_port()
+
+        async def _test():
+            from mcp import ClientSession
+            from mcp.client.streamable_http import streamablehttp_client
+
+            proc = subprocess.Popen(
+                [
+                    sys.executable, "-m", "pymnifocus.server",
+                    "--transport", "streamable-http",
+                    "--port", str(port),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                await asyncio.to_thread(_wait_for_port, port)
+
+                url = f"http://127.0.0.1:{port}/mcp"
+                async with streamablehttp_client(url) as (read, write, _):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        resources = await session.list_resources()
+                        return [r.uri for r in resources.resources]
+            finally:
+                proc.terminate()
+                proc.wait(timeout=5)
+
+        uris = asyncio.run(_test())
+        uri_strings = [str(u) for u in uris]
+        assert any("inbox" in u for u in uri_strings)
+        assert any("today" in u for u in uri_strings)
+        assert any("flagged" in u for u in uri_strings)
+        assert any("stats" in u for u in uri_strings)

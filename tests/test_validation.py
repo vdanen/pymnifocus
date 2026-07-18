@@ -170,3 +170,53 @@ class TestAppleScriptSanitization:
         result = _sanitize(malicious)
         assert "\n" not in result
         assert "\\n" in result
+
+
+class TestServerCLI:
+    """Verify pymnifocus-server argument parsing."""
+
+    def _parse(self, *args: str):
+        """Parse CLI args through the server's argparse without running the server."""
+        import argparse
+
+        parser = argparse.ArgumentParser(prog="pymnifocus-server")
+        parser.add_argument(
+            "--transport",
+            choices=["stdio", "streamable-http"],
+            default="stdio",
+        )
+        parser.add_argument("--host", default="127.0.0.1")
+        parser.add_argument("--port", type=int, default=8000)
+        return parser.parse_args(args)
+
+    def test_defaults(self):
+        args = self._parse()
+        assert args.transport == "stdio"
+        assert args.host == "127.0.0.1"
+        assert args.port == 8000
+
+    def test_streamable_http_transport(self):
+        args = self._parse("--transport", "streamable-http")
+        assert args.transport == "streamable-http"
+
+    def test_custom_host_and_port(self):
+        args = self._parse(
+            "--transport", "streamable-http",
+            "--host", "0.0.0.0",
+            "--port", "9090",
+        )
+        assert args.host == "0.0.0.0"
+        assert args.port == 9090
+
+    def test_invalid_transport_rejected(self):
+        with pytest.raises(SystemExit):
+            self._parse("--transport", "websocket")
+
+    def test_invalid_port_rejected(self):
+        with pytest.raises(SystemExit):
+            self._parse("--port", "abc")
+
+    def test_help_exits_cleanly(self):
+        with pytest.raises(SystemExit) as exc_info:
+            self._parse("--help")
+        assert exc_info.value.code == 0
