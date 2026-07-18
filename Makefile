@@ -9,7 +9,6 @@ help: ## Show this help
 
 install: ## Install package in editable mode
 	$(UV) sync
-	$(PYTHON) -m pip install -e .
 
 dev: ## Install dev dependencies
 	$(UV) sync --group dev
