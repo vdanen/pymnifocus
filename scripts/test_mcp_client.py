@@ -4,7 +4,6 @@ Test the OmniFocus MCP server by connecting as a proper MCP client.
 Run from project root: uv run python scripts/test_mcp_client.py
 """
 import asyncio
-import json
 import sys
 from pathlib import Path
 
