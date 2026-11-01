@@ -292,7 +292,7 @@ class TestMCPServerHTTP:
 
         async def _test():
             from mcp import ClientSession
-            from mcp.client.streamable_http import streamablehttp_client
+            from mcp.client.streamable_http import streamable_http_client
 
             proc = subprocess.Popen(
                 [
@@ -307,7 +307,7 @@ class TestMCPServerHTTP:
                 await asyncio.to_thread(_wait_for_port, port)
 
                 url = f"http://127.0.0.1:{port}/mcp"
-                async with streamablehttp_client(url) as (read, write, _):
+                async with streamable_http_client(url) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         tools = await session.list_tools()
@@ -330,7 +330,7 @@ class TestMCPServerHTTP:
 
         async def _test():
             from mcp import ClientSession
-            from mcp.client.streamable_http import streamablehttp_client
+            from mcp.client.streamable_http import streamable_http_client
 
             proc = subprocess.Popen(
                 [
@@ -345,7 +345,7 @@ class TestMCPServerHTTP:
                 await asyncio.to_thread(_wait_for_port, port)
 
                 url = f"http://127.0.0.1:{port}/mcp"
-                async with streamablehttp_client(url) as (read, write, _):
+                async with streamable_http_client(url) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         result = await session.call_tool(
@@ -365,7 +365,7 @@ class TestMCPServerHTTP:
 
         async def _test():
             from mcp import ClientSession
-            from mcp.client.streamable_http import streamablehttp_client
+            from mcp.client.streamable_http import streamable_http_client
 
             proc = subprocess.Popen(
                 [
@@ -380,7 +380,7 @@ class TestMCPServerHTTP:
                 await asyncio.to_thread(_wait_for_port, port)
 
                 url = f"http://127.0.0.1:{port}/mcp"
-                async with streamablehttp_client(url) as (read, write, _):
+                async with streamable_http_client(url) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         resources = await session.list_resources()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from . import omnifocus
 from . import applescript_gen as asp
@@ -35,10 +35,9 @@ QUERY FILTER TIPS:
 - Status values for projects: Active, OnHold, Done, Dropped
 - Combine filters with AND logic; within arrays, OR logic applies"""
 
-mcp = FastMCP(
+mcp = MCPServer(
     "OmniFocus MCP",
     instructions=INSTRUCTIONS,
-    json_response=True,
 )
 
 
@@ -605,10 +604,14 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.transport == "streamable-http":
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-
-    mcp.run(transport=args.transport)
+        mcp.run(
+            transport=args.transport,
+            host=args.host,
+            port=args.port,
+            json_response=True,
+        )
+    else:
+        mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":
