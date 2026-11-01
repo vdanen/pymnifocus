@@ -7,7 +7,7 @@ Inspired by [themotionmachine/OmniFocus-MCP](https://github.com/themotionmachine
 ## Prerequisites
 
 - **macOS** with OmniFocus installed and running
-- **Python 3.10+**
+- **Python 3.11+**
 - **[uv](https://docs.astral.sh/uv/)** (recommended) or pip
 
 ## Installation
