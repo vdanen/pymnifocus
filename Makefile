@@ -14,7 +14,8 @@ dev: ## Install dev dependencies
 	$(UV) sync --group dev
 
 lint: ## Run ruff linter
-	$(PYTHON) -m ruff check src/ tests/
+	uv sync --frozen
+	uv run ruff check .
 
 format: ## Auto-format code with ruff
 	$(PYTHON) -m ruff format src/ tests/
